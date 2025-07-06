@@ -9,7 +9,6 @@
         <asp:Button ID="btnEdit" runat="server" Text="Edit" CssClass="btn btn-warning px-4" />
     </div>
 
-    <!-- Customer Type Selection -->
     <div class="card mb-4 shadow-sm">
         <div class="card-body">
             <h5 class="card-title">Customer Type</h5>
