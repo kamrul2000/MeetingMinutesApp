@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" MasterPageFile="~/Site.Master" AutoEventWireup="true" CodeBehind="SinglePage.aspx.cs" Inherits="MeetingMinutesApp.SinglePage" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="SinglePage.aspx.cs" Inherits="MeetingMinutesApp.SinglePage" MasterPageFile="~/Site.Master" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="MainContent" runat="server">
 
@@ -44,36 +44,36 @@
                 </div>
 
                 <div class="mb-3">
-                    <label>Meeting Place:</label>
-                    <asp:TextBox ID="txtMeetingPlace" runat="server" CssClass="form-control" />
+                    <label>Meeting Place*:</label>
+                    <asp:TextBox ID="txtMeetingPlace" runat="server" CssClass="form-control" placeholder="Meeting Place" />
                 </div>
 
                 <div class="mb-3">
-                    <label>Attendees (Client):</label>
-                    <asp:TextBox ID="txtClientAttendees" runat="server" CssClass="form-control" />
+                    <label>Attendees (Client)*:</label>
+                    <asp:TextBox ID="txtClientAttendees" runat="server" CssClass="form-control" placeholder="Present Client Side" />
                 </div>
 
                 <div class="mb-3">
-                    <label>Attendees (Host):</label>
-                    <asp:TextBox ID="txtHostAttendees" runat="server" CssClass="form-control" />
+                    <label>Attendees (Host)*:</label>
+                    <asp:TextBox ID="txtHostAttendees" runat="server" CssClass="form-control" placeholder="Present Self Side" />
                 </div>
             </div>
 
             <!-- Right Column -->
             <div class="col-md-6">
                 <div class="mb-3">
-                    <label>Meeting Agenda:</label>
-                    <asp:TextBox ID="txtAgenda" runat="server" CssClass="form-control" TextMode="MultiLine" Rows="3" />
+                    <label>Meeting Agenda*:</label>
+                    <asp:TextBox ID="txtAgenda" runat="server" CssClass="form-control" TextMode="MultiLine" Rows="3" placeholder="Meeting Agenda" />
                 </div>
 
                 <div class="mb-3">
-                    <label>Meeting Discussion:</label>
-                    <asp:TextBox ID="txtDiscussion" runat="server" CssClass="form-control" TextMode="MultiLine" Rows="4" />
+                    <label>Meeting Discussion*:</label>
+                    <asp:TextBox ID="txtDiscussion" runat="server" CssClass="form-control" TextMode="MultiLine" Rows="4" placeholder="Meeting Discussion" />
                 </div>
 
                 <div class="mb-3">
-                    <label>Meeting Decision:</label>
-                    <asp:TextBox ID="txtDecision" runat="server" CssClass="form-control" TextMode="MultiLine" Rows="3" />
+                    <label>Meeting Decision*:</label>
+                    <asp:TextBox ID="txtDecision" runat="server" CssClass="form-control" TextMode="MultiLine" Rows="3" placeholder="Meeting Decision" />
                 </div>
             </div>
         </div>
@@ -104,23 +104,23 @@
     <!-- GridView for Product/Service List -->
     <div class="card p-3 mb-4">
         <asp:GridView ID="gvDetails" runat="server" CssClass="table table-bordered text-center" AutoGenerateColumns="false" OnRowDeleting="gvDetails_RowDeleting">
-                <Columns>
-                    <asp:TemplateField HeaderText="SL.">
-                        <ItemTemplate>
-                            <%# Container.DataItemIndex + 1 %>
-                        </ItemTemplate>
-                    </asp:TemplateField>
-                    <asp:BoundField DataField="ProductServiceName" HeaderText="Service Name" />
-                    <asp:BoundField DataField="Quantity" HeaderText="Quantity" />
-                    <asp:BoundField DataField="Unit" HeaderText="Unit" />
-                    <asp:TemplateField HeaderText="Edit">
-                        <ItemTemplate>
-                            <asp:Button ID="btnEditRow" runat="server" Text="✏️" CssClass="btn btn-sm btn-info" />
-                        </ItemTemplate>
-                    </asp:TemplateField>
-                    <asp:CommandField ShowDeleteButton="true" DeleteText="❌" ButtonType="Button" />
-                </Columns>
-            </asp:GridView>
+            <Columns>
+                <asp:TemplateField HeaderText="SL.">
+                    <ItemTemplate>
+                        <%# Container.DataItemIndex + 1 %>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:BoundField DataField="ProductServiceName" HeaderText="Service Name" />
+                <asp:BoundField DataField="Quantity" HeaderText="Quantity" />
+                <asp:BoundField DataField="Unit" HeaderText="Unit" />
+                <asp:TemplateField HeaderText="Edit">
+                    <ItemTemplate>
+                        <asp:Button ID="btnEditRow" runat="server" Text="✏️" CssClass="btn btn-sm btn-info" />
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:CommandField ShowDeleteButton="true" DeleteText="❌" ButtonType="Button" />
+            </Columns>
+        </asp:GridView>
     </div>
 
     <!-- Save and Refresh Buttons -->
@@ -147,8 +147,19 @@
             });
 
             $('#ddlProductService').change(function () {
-                PageMethods.GetUnit($(this).val(), function (unit) {
-                    $('#txtUnit').val(unit);
+                var productId = $(this).val();
+                $.ajax({
+                    type: "POST",
+                    url: "SinglePage.aspx/GetUnit",
+                    data: JSON.stringify({ productId: parseInt(productId) }),
+                    contentType: "application/json; charset=utf-8",
+                    dataType: "json",
+                    success: function (response) {
+                        $('#txtUnit').val(response.d);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Error: ", xhr.responseText);
+                    }
                 });
             });
 

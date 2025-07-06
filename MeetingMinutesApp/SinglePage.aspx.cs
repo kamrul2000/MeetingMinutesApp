@@ -4,6 +4,7 @@ using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Web.Services;
+using System.Web.UI;
 using System.Web.UI.WebControls;
 
 namespace MeetingMinutesApp
@@ -86,100 +87,184 @@ namespace MeetingMinutesApp
 
         protected void btnAdd_Click(object sender, EventArgs e)
         {
-            List<DetailItem> list = (List<DetailItem>)ViewState["Details"];
+            if (string.IsNullOrWhiteSpace(txtQuantity.Text))
+            {
+                ScriptManager.RegisterStartupScript(this, GetType(), "alertMessage", "alert('Please enter quantity.');", true);
+                return;
+            }
+
+            int quantity;
+            if (!int.TryParse(txtQuantity.Text, out quantity) || quantity <= 0)
+            {
+                ScriptManager.RegisterStartupScript(this, GetType(), "alertMessage", "alert('Please enter a valid positive quantity.');", true);
+                return;
+            }
+
+            List<DetailItem> list = ViewState["Details"] as List<DetailItem>;
+
+            // Prevent duplicate product/service in list
+            int prodServiceId = int.Parse(ddlProductService.SelectedValue);
+            if (list.Exists(x => x.ProductServiceId == prodServiceId))
+            {
+                ScriptManager.RegisterStartupScript(this, GetType(), "alertMessage", "alert('This product/service is already added.');", true);
+                return;
+            }
 
             list.Add(new DetailItem
             {
-                ProductServiceId = int.Parse(ddlProductService.SelectedValue),
+                ProductServiceId = prodServiceId,
                 ProductServiceName = ddlProductService.SelectedItem.Text,
                 Unit = txtUnit.Text,
-                Quantity = int.Parse(txtQuantity.Text)
+                Quantity = quantity
             });
 
             ViewState["Details"] = list;
             BindGrid();
+
+            // Clear quantity and unit fields after add
             txtQuantity.Text = "";
+            txtUnit.Text = "";
         }
 
         protected void gvDetails_RowDeleting(object sender, GridViewDeleteEventArgs e)
         {
-            List<DetailItem> list = (List<DetailItem>)ViewState["Details"];
-            list.RemoveAt(e.RowIndex);
-            ViewState["Details"] = list;
-            BindGrid();
+            List<DetailItem> list = ViewState["Details"] as List<DetailItem>;
+            if (list != null && e.RowIndex >= 0 && e.RowIndex < list.Count)
+            {
+                list.RemoveAt(e.RowIndex);
+                ViewState["Details"] = list;
+                BindGrid();
+            }
         }
 
         private void BindGrid()
         {
-            gvDetails.DataSource = (List<DetailItem>)ViewState["Details"];
+            var list = ViewState["Details"] as List<DetailItem>;
+            gvDetails.DataSource = list;
             gvDetails.DataBind();
         }
 
         protected void btnSave_Click(object sender, EventArgs e)
         {
-            string customerType = Request.Form["CustomerType"];
-            int customerId = customerType == "Corporate"
-                ? int.Parse(ddllCustomer.SelectedValue)
-                : int.Parse(ddlCustomer.SelectedValue);
-
-            DateTime date = DateTime.Parse(txtDate.Text);
-            string time = txtTime.Text;
-            string place = txtMeetingPlace.Text;
-            string hostAttendees = txtHostAttendees.Text;
-            string clientAttendees = txtClientAttendees.Text;
-            string agenda = txtAgenda.Text;
-            string discussion = txtDiscussion.Text;
-            string decision = txtDecision.Text;
-
-            int masterId = 0;
-
-            using (SqlConnection con = new SqlConnection(conStr))
+            try
             {
-                con.Open();
+                string customerType = Request.Form["CustomerType"];
+                string selectedCustomerValue = customerType == "Corporate" ? ddllCustomer.SelectedValue : ddlCustomer.SelectedValue;
 
-                SqlCommand cmd = new SqlCommand("Meeting_Minutes_Master_Save_SP", con);
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@CustomerType", customerType);
-                cmd.Parameters.AddWithValue("@CustomerId", customerId);
-                cmd.Parameters.AddWithValue("@MeetingDate", date);
-                cmd.Parameters.AddWithValue("@MeetingTime", time);
-                cmd.Parameters.AddWithValue("@MeetingPlace", place);
-                cmd.Parameters.AddWithValue("@HostAttendees", hostAttendees);
-                cmd.Parameters.AddWithValue("@ClientAttendees", clientAttendees);
-                cmd.Parameters.AddWithValue("@Agenda", agenda);
-                cmd.Parameters.AddWithValue("@Discussion", discussion);
-                cmd.Parameters.AddWithValue("@Decision", decision);
-
-                SqlParameter outputId = new SqlParameter("@NewId", SqlDbType.Int)
+                if (string.IsNullOrWhiteSpace(selectedCustomerValue))
                 {
-                    Direction = ParameterDirection.Output
-                };
-                cmd.Parameters.Add(outputId);
-
-                cmd.ExecuteNonQuery();
-                masterId = Convert.ToInt32(outputId.Value);
-
-                List<DetailItem> list = (List<DetailItem>)ViewState["Details"];
-                foreach (var item in list)
-                {
-                    SqlCommand cmdDetail = new SqlCommand("Meeting_Minutes_Details_Save_SP", con);
-                    cmdDetail.CommandType = CommandType.StoredProcedure;
-                    cmdDetail.Parameters.AddWithValue("@MasterId", masterId);
-                    cmdDetail.Parameters.AddWithValue("@ProductServiceId", item.ProductServiceId);
-                    cmdDetail.Parameters.AddWithValue("@Unit", item.Unit);
-                    cmdDetail.Parameters.AddWithValue("@Quantity", item.Quantity);
-                    cmdDetail.ExecuteNonQuery();
+                    ScriptManager.RegisterStartupScript(this, GetType(), "alertMessage", "alert('Please select a customer.');", true);
+                    return;
                 }
-            }
 
-            // Optionally show a success message or clear form
-            ViewState["Details"] = new List<DetailItem>();
-            BindGrid();
+                if (!DateTime.TryParse(txtDate.Text, out DateTime meetingDate))
+                {
+                    ScriptManager.RegisterStartupScript(this, GetType(), "alertMessage", "alert('Invalid meeting date.');", true);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(txtTime.Text) ||
+                    string.IsNullOrWhiteSpace(txtMeetingPlace.Text) ||
+                    string.IsNullOrWhiteSpace(txtClientAttendees.Text) ||
+                    string.IsNullOrWhiteSpace(txtHostAttendees.Text) ||
+                    string.IsNullOrWhiteSpace(txtAgenda.Text) ||
+                    string.IsNullOrWhiteSpace(txtDiscussion.Text) ||
+                    string.IsNullOrWhiteSpace(txtDecision.Text))
+                {
+                    ScriptManager.RegisterStartupScript(this, GetType(), "alertMessage", "alert('Please fill all required fields.');", true);
+                    return;
+                }
+
+                int customerId = int.Parse(selectedCustomerValue);
+                string meetingTime = txtTime.Text;
+                string place = txtMeetingPlace.Text;
+                string hostAttendees = txtHostAttendees.Text;
+                string clientAttendees = txtClientAttendees.Text;
+                string agenda = txtAgenda.Text;
+                string discussion = txtDiscussion.Text;
+                string decision = txtDecision.Text;
+
+                List<DetailItem> list = ViewState["Details"] as List<DetailItem>;
+                if (list == null || list.Count == 0)
+                {
+                    ScriptManager.RegisterStartupScript(this, GetType(), "alertMessage", "alert('Please add at least one product/service.');", true);
+                    return;
+                }
+
+                int masterId = 0;
+
+                using (SqlConnection con = new SqlConnection(conStr))
+                {
+                    con.Open();
+
+                    // Save Master record via stored procedure
+                    SqlCommand cmd = new SqlCommand("Meeting_Minutes_Master_Save_SP", con)
+                    {
+                        CommandType = CommandType.StoredProcedure
+                    };
+                    cmd.Parameters.AddWithValue("@CustomerType", customerType);
+                    cmd.Parameters.AddWithValue("@CustomerId", customerId);
+                    cmd.Parameters.AddWithValue("@MeetingDate", meetingDate);
+                    cmd.Parameters.AddWithValue("@MeetingTime", meetingTime);
+                    cmd.Parameters.AddWithValue("@MeetingPlace", place);
+                    cmd.Parameters.AddWithValue("@HostAttendees", hostAttendees);
+                    cmd.Parameters.AddWithValue("@ClientAttendees", clientAttendees);
+                    cmd.Parameters.AddWithValue("@Agenda", agenda);
+                    cmd.Parameters.AddWithValue("@Discussion", discussion);
+                    cmd.Parameters.AddWithValue("@Decision", decision);
+
+                    SqlParameter outputId = new SqlParameter("@NewId", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
+                    cmd.Parameters.Add(outputId);
+
+                    cmd.ExecuteNonQuery();
+
+                    masterId = Convert.ToInt32(outputId.Value);
+
+                    // Save Details records
+                    foreach (var item in list)
+                    {
+                        SqlCommand cmdDetail = new SqlCommand("Meeting_Minutes_Details_Save_SP", con)
+                        {
+                            CommandType = CommandType.StoredProcedure
+                        };
+                        cmdDetail.Parameters.AddWithValue("@MasterId", masterId);
+                        cmdDetail.Parameters.AddWithValue("@ProductServiceId", item.ProductServiceId);
+                        cmdDetail.Parameters.AddWithValue("@Unit", item.Unit);
+                        cmdDetail.Parameters.AddWithValue("@Quantity", item.Quantity);
+
+                        cmdDetail.ExecuteNonQuery();
+                    }
+                }
+
+                // Reset form and ViewState
+                ViewState["Details"] = new List<DetailItem>();
+                BindGrid();
+
+                txtDate.Text = "";
+                txtTime.Text = "";
+                txtMeetingPlace.Text = "";
+                txtClientAttendees.Text = "";
+                txtHostAttendees.Text = "";
+                txtAgenda.Text = "";
+                txtDiscussion.Text = "";
+                txtDecision.Text = "";
+                txtQuantity.Text = "";
+                txtUnit.Text = "";
+
+                ScriptManager.RegisterStartupScript(this, GetType(), "alertMessage", "alert('Meeting minutes saved successfully.');", true);
+            }
+            catch (Exception ex)
+            {
+                ScriptManager.RegisterStartupScript(this, GetType(), "alertMessage", $"alert('Error: {ex.Message}');", true);
+            }
         }
 
         protected void btnRefresh_Click(object sender, EventArgs e)
         {
-            Response.Redirect(Request.RawUrl); // reload the page
+            Response.Redirect(Request.RawUrl); 
         }
 
         [WebMethod]
@@ -218,13 +303,15 @@ namespace MeetingMinutesApp
         public static string GetUnit(int productId)
         {
             string conStr = ConfigurationManager.ConnectionStrings["MeetingDBConnection"].ConnectionString;
+            string unit = "";
             using (SqlConnection con = new SqlConnection(conStr))
             {
                 con.Open();
                 SqlCommand cmd = new SqlCommand("SELECT Unit FROM Products_Service_Tbl WHERE Id = @Id", con);
                 cmd.Parameters.AddWithValue("@Id", productId);
-                return Convert.ToString(cmd.ExecuteScalar());
+                unit = Convert.ToString(cmd.ExecuteScalar());
             }
+            return unit;
         }
     }
 }
