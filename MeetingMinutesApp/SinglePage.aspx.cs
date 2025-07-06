@@ -102,7 +102,6 @@ namespace MeetingMinutesApp
 
             List<DetailItem> list = ViewState["Details"] as List<DetailItem>;
 
-            // Prevent duplicate product/service in list
             int prodServiceId = int.Parse(ddlProductService.SelectedValue);
             if (list.Exists(x => x.ProductServiceId == prodServiceId))
             {
@@ -121,7 +120,6 @@ namespace MeetingMinutesApp
             ViewState["Details"] = list;
             BindGrid();
 
-            // Clear quantity and unit fields after add
             txtQuantity.Text = "";
             txtUnit.Text = "";
         }
@@ -197,7 +195,6 @@ namespace MeetingMinutesApp
                 {
                     con.Open();
 
-                    // Save Master record via stored procedure
                     SqlCommand cmd = new SqlCommand("Meeting_Minutes_Master_Save_SP", con)
                     {
                         CommandType = CommandType.StoredProcedure
@@ -223,7 +220,6 @@ namespace MeetingMinutesApp
 
                     masterId = Convert.ToInt32(outputId.Value);
 
-                    // Save Details records
                     foreach (var item in list)
                     {
                         SqlCommand cmdDetail = new SqlCommand("Meeting_Minutes_Details_Save_SP", con)
@@ -239,7 +235,6 @@ namespace MeetingMinutesApp
                     }
                 }
 
-                // Reset form and ViewState
                 ViewState["Details"] = new List<DetailItem>();
                 BindGrid();
 
